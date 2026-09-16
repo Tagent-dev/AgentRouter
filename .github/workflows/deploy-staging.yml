@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: staging
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Not yet enabled
         run: |
           echo "Deployment is not wired up. Requires the Helm chart under"
