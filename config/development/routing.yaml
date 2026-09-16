@@ -1,0 +1,19 @@
+# Routing configuration for the development environment.
+#
+# Weights are configuration, not universal truths. Benchmark before changing
+# them and record the result in evaluation/.
+
+routing:
+  mode: balanced   # balanced | quality_first | cost_first | latency_first | reliability_first | policy_first
+
+weights:
+  quality: 0.40
+  cost: 0.25
+  latency: 0.15
+  reliability: 0.20
+
+escalation:
+  enabled: true
+
+fallback:
+  enabled: true

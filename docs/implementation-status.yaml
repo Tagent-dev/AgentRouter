@@ -1,0 +1,1263 @@
+# AgentRouter status manifest (Status_Manifest).
+#
+# This file is the single machine-readable record of what actually works.
+# `docs/IMPLEMENTATION_STATUS.md` is generated from it by
+# `python scripts/status/render.py`; edit this file, never the generated document.
+#
+# Schema: docs/status-manifest.schema.json (validated by scripts/status/validate.py,
+# gated in CI as `status-schema` per Requirement 1.3).
+#
+# After changing anything here, run all four gates:
+#
+#   python scripts/status/validate.py
+#   python scripts/status/render.py          # then commit the regenerated document
+#   python scripts/status/verify.py
+#   python scripts/status/check_dod.py
+#
+# A component's own evidence list never names `scripts/status/verify.py`: that is
+# the script running the list, so listing it would make the gate recurse into
+# itself.
+#
+# Rules this file exists to enforce
+# ---------------------------------
+#   * Requirement 1.1 - every one of the 30 product modules of Master_Specification
+#     section 6 has an entry, with a status from {not_started, in_progress,
+#     implemented, blocked}.
+#   * Requirement 1.2 - an entry may only claim `implemented` while naming its
+#     implementation location, its test location and at least one Verification_Evidence
+#     command. The schema makes those conditional on the status: a component at
+#     `not_started` has no command that could substantiate a claim, so requiring one
+#     everywhere would force invented evidence, which is the failure mode Requirement 2
+#     exists to prevent. `implementation` and `tests` are always present because they
+#     also serve as the declared target location; under `implemented` they become a
+#     claim about something that exists.
+#   * Requirement 1.7 - `implemented` requires all twelve Component_DoD items true.
+#     The schema enforces this directly with a conditional subschema, so a manifest
+#     that claims completion on an incomplete checklist fails `status-schema` as well
+#     as `status-dod`.
+#   * Requirement 1.8 - `limitations` lists every known limitation. An empty list is
+#     a positive claim that none is known.
+#   * Requirement 2.8 - `placeholders` records every artifact that looks finished but
+#     does not build, render or execute.
+#
+# Status honesty
+# --------------
+# Nothing here is `implemented`. Three components are `in_progress` because real,
+# tested code exists for them; the rest are `not_started`. The scaffold is extensive,
+# but a materialized directory tree is not an implementation, and Requirement 1.7
+# means partial credit is recorded in `component_dod`, never in `status`.
+#
+# Where a Component_DoD item is true because Master_Specification section 134's
+# "where applicable" qualifier does not apply, the item is named in
+# `dod_not_applicable` so a reader cannot mistake it for completed work. Section 134
+# attaches that qualifier to exactly three items: integration tests, metrics and
+# deployment.
+#
+# Non-section-6 entries
+# --------------------
+# Section 6 names 30 product modules. It does not name the repository foundation, the
+# development environment, this completion ledger, the shared contracts, the database,
+# the event system, the verification suites or the documentation set, yet each is a
+# distinct step of the 46-step Implementation_Sequence (or, for the ledger, a control
+# required by Requirement 1) with its own artifacts and its own Component_DoD. Eight
+# entries carry `category: foundation` for that reason, and are excluded from the
+# 30-module count asserted in tests/unit/test_status_manifest.py. Steps 44 to 46 of the
+# sequence (customer onboarding, production hardening, enterprise deployment
+# validation) get no entry: they are platform-level readiness activities measured by
+# the 29-item Production_DoD, not components.
+
+version: 1
+
+components:
+  # -------------------------------------------------------------------------
+  # Foundation (not named in Master_Specification section 6)
+  # -------------------------------------------------------------------------
+
+  - id: repository-foundation
+    name: Repository foundation
+    category: foundation
+    group: foundation
+    status: in_progress
+    phase: 1
+    implementation: scripts/bootstrap/scaffold_repository.py
+    tests: tests/unit
+    evidence:
+      - name: scaffold-idempotent
+        command: python scripts/bootstrap/scaffold_repository.py
+      - name: structure-valid
+        command: python scripts/testing/validate_structure.py
+    component_dod:
+      implementation: true
+      unit_tests: false
+      integration_tests: false
+      error_handling: true
+      security_reviewed: true
+      logging: false
+      metrics: true
+      documentation: true
+      api_contract: false
+      configuration: false
+      deployment: true
+      ci_validated: true
+    dod_not_applicable:
+      - metrics
+      - deployment
+    limitations:
+      - "The target structure is embedded in the generator as code, not read from a data file, so the structure definition and its validator list are maintained in two places."
+      - "The generator and the structure validator have no dedicated unit suite; only the byte-for-byte constant guards in tests/unit/test_quality_command.py and tests/unit/test_status_manifest.py protect them from drift."
+      - "`docs/IMPLEMENTATION_STATUS.md` is the one file the generator does not author: it delegates to scripts/status/render.py. On a checkout without PyYAML the generator reports that file as pending instead of writing it."
+    placeholders:
+      - path: Makefile
+        kind: make_target
+        reason: "The `build` and `migrate` targets print a message and exit 1. They fail loudly rather than pretending to succeed, but neither builds nor migrates anything."
+    notes: >-
+      Repository tooling is not deployed and emits no metrics, so those two
+      Component_DoD items are recorded as not applicable rather than done.
+      Structured logging and a declared contract for the generator's output are
+      genuinely absent.
+
+  - id: development-environment
+    name: Development environment and quality gate
+    category: foundation
+    group: foundation
+    status: in_progress
+    phase: 2
+    implementation: scripts/development
+    tests: tests/unit
+    evidence:
+      - name: quality-gate
+        command: python scripts/development/check.py
+      - name: dependency-manifests
+        command: python -m pytest tests/unit/test_dependency_manifests.py -q
+    component_dod:
+      implementation: true
+      unit_tests: true
+      integration_tests: false
+      error_handling: true
+      security_reviewed: true
+      logging: false
+      metrics: true
+      documentation: true
+      api_contract: false
+      configuration: true
+      deployment: true
+      ci_validated: true
+    dod_not_applicable:
+      - metrics
+      - deployment
+    limitations:
+      - "`scripts/development/health.py` is exercised only against stubbed sockets; no automated test starts the Compose stack, so the reachability path is unverified end to end."
+      - "The Compose stack starts PostgreSQL and Redis only. No application service is buildable, so `make up` produces backing services and nothing else."
+      - "Coverage `fail_under` is 0 because there is no source to measure yet."
+    notes: >-
+      `health.py` is deliberately excluded from the evidence list: it requires a
+      running Docker daemon, so as evidence it would fail in CI for an
+      environmental reason rather than a real one.
+
+  - id: completion-ledger
+    name: Completion ledger
+    category: foundation
+    group: foundation
+    status: in_progress
+    phase: 2
+    implementation: scripts/status
+    tests: tests/unit/test_status_manifest.py
+    evidence:
+      - name: status-manifest
+        command: python -m pytest tests/unit/test_status_manifest.py -q
+      - name: status-scripts
+        command: python -m pytest tests/unit/test_status_scripts.py -q
+      - name: status-schema
+        command: python scripts/status/validate.py
+      - name: status-render
+        command: python scripts/status/render.py --check
+      - name: status-dod
+        command: python scripts/status/check_dod.py
+    component_dod:
+      implementation: true
+      unit_tests: true
+      integration_tests: false
+      error_handling: true
+      security_reviewed: true
+      logging: false
+      metrics: true
+      documentation: true
+      api_contract: true
+      configuration: false
+      deployment: true
+      ci_validated: false
+    dod_not_applicable:
+      - metrics
+      - deployment
+    limitations:
+      - "The `postTaskExecution` completion hook is spec task 2.3 and does not exist, so a status change is still made by editing this file."
+      - "The four gates run locally but are not wired into `.github/workflows/ci.yml`; those jobs are spec task 2.4, so nothing yet fails a pull request on a stale document or failing evidence."
+      - "`verify.py` executes commands from this file. The trust boundary is that the manifest is a tracked, reviewed file; the script never uses a shell, but it is not a sandbox and must not be pointed at unreviewed input."
+      - "Uniqueness of component ids and coverage of all 30 section-6 modules are not expressible in JSON Schema; `scripts/status/validate.py` and tests/unit/test_status_manifest.py assert them instead."
+      - "Nothing is recorded `implemented`, so `verify.py` currently executes zero commands. Its failure path is covered only by synthetic manifests in tests, not by a real component."
+      - "The renderer has no structured logging and reads no configuration: the document layout is fixed in code."
+    notes: >-
+      `api_contract` is true because the committed JSON Schema is this component's
+      contract. `ci_validated` is false because the four gates are not yet CI jobs,
+      which is why the status is `in_progress` rather than `implemented` even though
+      the scripts work.
+
+  - id: shared-contracts
+    name: Shared types and API contracts
+    category: foundation
+    group: foundation
+    status: not_started
+    phase: 3
+    implementation: packages/api_contracts
+    tests: packages/api_contracts/tests
+    evidence: []
+    component_dod:
+      implementation: false
+      unit_tests: false
+      integration_tests: false
+      error_handling: false
+      security_reviewed: false
+      logging: false
+      metrics: false
+      documentation: false
+      api_contract: false
+      configuration: false
+      deployment: false
+      ci_validated: false
+    limitations: []
+    placeholders:
+      - path: docs/api/openapi.yaml
+        kind: api_contract
+        reason: "`paths` is an empty object. The document parses and declares its version, tags and security schemes, but describes no operation, so nothing can be generated or validated from it."
+      - path: packages/api_contracts
+        kind: directory
+        reason: "Holds a README only. No schema, no generated type and no codegen entry point."
+    notes: >-
+      Covers Implementation_Sequence steps 03 and 11: the versioned contract
+      schemas, the derived language types, the canonical request model and
+      docs/api/openapi.yaml.
+
+  - id: database-foundation
+    name: Database foundation
+    category: foundation
+    group: foundation
+    status: not_started
+    phase: 4
+    implementation: database
+    tests: tests/integration
+    evidence: []
+    component_dod:
+      implementation: false
+      unit_tests: false
+      integration_tests: false
+      error_handling: false
+      security_reviewed: false
+      logging: false
+      metrics: false
+      documentation: false
+      api_contract: false
+      configuration: false
+      deployment: false
+      ci_validated: false
+    limitations: []
+    placeholders:
+      - path: database/migrations
+        kind: directory
+        reason: "Empty. None of the 25 core tables of Master_Specification section 61 exists, so no migration runner, no seed and no row-level security policy can run."
+    notes: >-
+      Decision D6 applies: every migration ships a tested down-migration and
+      production applies migrations forward only.
+
+  - id: event-system
+    name: Event system
+    category: foundation
+    group: platform
+    status: not_started
+    phase: 21
+    implementation: packages/events
+    tests: packages/events/tests
+    evidence: []
+    component_dod:
+      implementation: false
+      unit_tests: false
+      integration_tests: false
+      error_handling: false
+      security_reviewed: false
+      logging: false
+      metrics: false
+      documentation: false
+      api_contract: false
+      configuration: false
+      deployment: false
+      ci_validated: false
+    limitations: []
+    notes: >-
+      Transactional outbox, dispatcher and idempotent consumer base. Analytics,
+      Billing, Notifications and Audit all depend on it.
+
+  - id: verification-suites
+    name: Verification suites
+    category: foundation
+    group: foundation
+    status: not_started
+    phase: 42
+    implementation: tests
+    tests: tests
+    evidence: []
+    component_dod:
+      implementation: false
+      unit_tests: false
+      integration_tests: false
+      error_handling: false
+      security_reviewed: false
+      logging: false
+      metrics: false
+      documentation: false
+      api_contract: false
+      configuration: false
+      deployment: false
+      ci_validated: false
+    limitations:
+      - "Only tests/unit holds tests. The api, mcp, integration, e2e, security, load and chaos suites are empty directories."
+    notes: >-
+      Covers Implementation_Sequence steps 40 to 42: security testing, load
+      testing and end-to-end testing.
+
+  - id: documentation
+    name: Documentation set
+    category: foundation
+    group: foundation
+    status: not_started
+    phase: 43
+    implementation: docs
+    tests: tests/unit
+    evidence: []
+    component_dod:
+      implementation: false
+      unit_tests: false
+      integration_tests: false
+      error_handling: false
+      security_reviewed: false
+      logging: false
+      metrics: false
+      documentation: false
+      api_contract: false
+      configuration: false
+      deployment: false
+      ci_validated: false
+    limitations:
+      - "Every page under docs/ states its purpose and scope; none carries the content it promises."
+      - "No executable example is embedded anywhere, so Requirement 43.3 has nothing to run."
+    placeholders:
+      - path: apps/docs
+        kind: directory
+        reason: "Documentation site scaffold. Holds a README and empty content and public directories; no generator, no build."
+
+  # -------------------------------------------------------------------------
+  # Master_Specification section 6 product modules
+  # -------------------------------------------------------------------------
+
+  - id: gateway
+    name: Gateway
+    category: product_module
+    module: 01 Gateway
+    group: services
+    status: not_started
+    phase: 12
+    implementation: services/gateway
+    tests: services/gateway/tests
+    evidence: []
+    component_dod:
+      implementation: false
+      unit_tests: false
+      integration_tests: false
+      error_handling: false
+      security_reviewed: false
+      logging: false
+      metrics: false
+      documentation: false
+      api_contract: false
+      configuration: false
+      deployment: false
+      ci_validated: false
+    limitations: []
+    notes: >-
+      Serves the eleven paths of Master_Specification section 45 under /v1,
+      including streaming pass-through and the rate-limit scopes of section 27.
+
+  - id: authentication
+    name: Authentication
+    category: product_module
+    module: 02 Authentication
+    group: platform
+    status: not_started
+    phase: 5
+    implementation: packages/auth
+    tests: packages/auth/tests
+    evidence: []
+    component_dod:
+      implementation: false
+      unit_tests: false
+      integration_tests: false
+      error_handling: false
+      security_reviewed: false
+      logging: false
+      metrics: false
+      documentation: false
+      api_contract: false
+      configuration: false
+      deployment: false
+      ci_validated: false
+    limitations: []
+
+  - id: tenant-management
+    name: Tenant management
+    category: product_module
+    module: 03 Tenant Management
+    group: platform
+    status: not_started
+    phase: 6
+    implementation: packages/tenant
+    tests: packages/tenant/tests
+    evidence: []
+    component_dod:
+      implementation: false
+      unit_tests: false
+      integration_tests: false
+      error_handling: false
+      security_reviewed: false
+      logging: false
+      metrics: false
+      documentation: false
+      api_contract: false
+      configuration: false
+      deployment: false
+      ci_validated: false
+    limitations: []
+    notes: >-
+      Owns TenantContext and the tenant-scoped session. Tenant isolation must
+      exist before any tenant-owned row is written.
+
+  - id: user-management
+    name: User management
+    category: product_module
+    module: 04 User Management
+    group: platform
+    status: not_started
+    phase: 7
+    implementation: packages/authorization
+    tests: packages/authorization/tests
+    evidence: []
+    component_dod:
+      implementation: false
+      unit_tests: false
+      integration_tests: false
+      error_handling: false
+      security_reviewed: false
+      logging: false
+      metrics: false
+      documentation: false
+      api_contract: false
+      configuration: false
+      deployment: false
+      ci_validated: false
+    limitations: []
+    notes: >-
+      Users, their roles and the granular permissions of Master_Specification
+      section 32. The administrative surface is served by the gateway; the
+      repository has no dedicated control-api service yet, and
+      deployments/helm/agentrouter/templates/control-api.yaml is a placeholder for
+      one.
+
+  - id: team-management
+    name: Team management
+    category: product_module
+    module: 05 Team Management
+    group: platform
+    status: not_started
+    phase: 7
+    implementation: packages/tenant
+    tests: packages/tenant/tests
+    evidence: []
+    component_dod:
+      implementation: false
+      unit_tests: false
+      integration_tests: false
+      error_handling: false
+      security_reviewed: false
+      logging: false
+      metrics: false
+      documentation: false
+      api_contract: false
+      configuration: false
+      deployment: false
+      ci_validated: false
+    limitations: []
+    notes: >-
+      Teams share the organization model in packages/tenant with tenants, and are
+      a policy scope in the six-level Policy_Hierarchy.
+
+  - id: provider-management
+    name: Provider management
+    category: product_module
+    module: 06 Provider Management
+    group: services
+    status: not_started
+    phase: 9
+    implementation: services/providers
+    tests: services/providers/tests
+    evidence: []
+    component_dod:
+      implementation: false
+      unit_tests: false
+      integration_tests: false
+      error_handling: false
+      security_reviewed: false
+      logging: false
+      metrics: false
+      documentation: false
+      api_contract: false
+      configuration: false
+      deployment: false
+      ci_validated: false
+    limitations: []
+    notes: >-
+      The Provider_Gateway and its adapters. This is the only component permitted
+      to call a provider API, which the boundary scanner of spec task 3.2
+      enforces.
+
+  - id: model-registry
+    name: Model registry
+    category: product_module
+    module: 07 Model Registry
+    group: services
+    status: not_started
+    phase: 8
+    implementation: services/registry
+    tests: services/registry/tests
+    evidence: []
+    component_dod:
+      implementation: false
+      unit_tests: false
+      integration_tests: false
+      error_handling: false
+      security_reviewed: false
+      logging: false
+      metrics: false
+      documentation: false
+      api_contract: false
+      configuration: false
+      deployment: false
+      ci_validated: false
+    limitations: []
+    notes: >-
+      The only place a model price or context-window figure may be stated. The
+      literal scanner of spec task 3.1 fails the build on such a literal
+      elsewhere.
+
+  - id: request-analyzer
+    name: Request analyzer
+    category: product_module
+    module: 08 Request Analyzer
+    group: services
+    status: not_started
+    phase: 13
+    implementation: services/analyzer
+    tests: services/analyzer/tests
+    evidence: []
+    component_dod:
+      implementation: false
+      unit_tests: false
+      integration_tests: false
+      error_handling: false
+      security_reviewed: false
+      logging: false
+      metrics: false
+      documentation: false
+      api_contract: false
+      configuration: false
+      deployment: false
+      ci_validated: false
+    limitations: []
+    notes: >-
+      Model-agnostic by construction: analyze() receives no registry and no
+      AnalysisResult field may name a model or a provider.
+
+  - id: routing-engine
+    name: Routing engine
+    category: product_module
+    module: 09 Routing Engine
+    group: services
+    status: not_started
+    phase: 14
+    implementation: services/router
+    tests: services/router/tests
+    evidence: []
+    component_dod:
+      implementation: false
+      unit_tests: false
+      integration_tests: false
+      error_handling: false
+      security_reviewed: false
+      logging: false
+      metrics: false
+      documentation: false
+      api_contract: false
+      configuration: false
+      deployment: false
+      ci_validated: false
+    limitations: []
+    notes: >-
+      The core IP: candidate filtering, the six-term score, the six Routing_Mode
+      weight presets and the explainable RoutingDecision. Determinism claims are
+      scoped to a fixed Routing_Input per decision D5.
+
+  - id: cost-engine
+    name: Cost engine
+    category: product_module
+    module: 10 Cost Engine
+    group: services
+    status: not_started
+    phase: 15
+    implementation: services/cost_engine
+    tests: services/cost_engine/tests
+    evidence: []
+    component_dod:
+      implementation: false
+      unit_tests: false
+      integration_tests: false
+      error_handling: false
+      security_reviewed: false
+      logging: false
+      metrics: false
+      documentation: false
+      api_contract: false
+      configuration: false
+      deployment: false
+      ci_validated: false
+    limitations: []
+    notes: >-
+      Cost is per request, summed across every attempt including fallbacks and
+      escalations, and savings are signed and never floored at zero (decision D4).
+
+  - id: policy-engine
+    name: Policy engine
+    category: product_module
+    module: 11 Policy Engine
+    group: services
+    status: not_started
+    phase: 16
+    implementation: services/policy
+    tests: services/policy/tests
+    evidence: []
+    component_dod:
+      implementation: false
+      unit_tests: false
+      integration_tests: false
+      error_handling: false
+      security_reviewed: false
+      logging: false
+      metrics: false
+      documentation: false
+      api_contract: false
+      configuration: false
+      deployment: false
+      ci_validated: false
+    limitations: []
+    notes: >-
+      Resolution is monotonic narrowing across the six scopes of the
+      Policy_Hierarchy: a narrower scope may restrict further and may never widen
+      (decision D3).
+
+  - id: escalation-engine
+    name: Escalation engine
+    category: product_module
+    module: 12 Escalation Engine
+    group: services
+    status: not_started
+    phase: 17
+    implementation: services/router/internal/escalation
+    tests: services/router/tests
+    evidence: []
+    component_dod:
+      implementation: false
+      unit_tests: false
+      integration_tests: false
+      error_handling: false
+      security_reviewed: false
+      logging: false
+      metrics: false
+      documentation: false
+      api_contract: false
+      configuration: false
+      deployment: false
+      ci_validated: false
+    limitations: []
+    notes: >-
+      Re-routes to a higher-capability candidate from the same candidate set, so
+      an escalated model still satisfies the original policy decision.
+
+  - id: fallback-engine
+    name: Fallback engine
+    category: product_module
+    module: 13 Fallback Engine
+    group: services
+    status: not_started
+    phase: 18
+    implementation: services/router/internal/fallback
+    tests: services/router/tests
+    evidence: []
+    component_dod:
+      implementation: false
+      unit_tests: false
+      integration_tests: false
+      error_handling: false
+      security_reviewed: false
+      logging: false
+      metrics: false
+      documentation: false
+      api_contract: false
+      configuration: false
+      deployment: false
+      ci_validated: false
+    limitations: []
+    notes: >-
+      Selects alternatives from the existing candidate set only, so fallback can
+      never reach a prohibited provider. Owns the Circuit_Breaker states.
+
+  - id: security-engine
+    name: Security engine
+    category: product_module
+    module: 14 Security Engine
+    group: platform
+    status: not_started
+    phase: 19
+    implementation: packages/security
+    tests: packages/security/tests
+    evidence: []
+    component_dod:
+      implementation: false
+      unit_tests: false
+      integration_tests: false
+      error_handling: false
+      security_reviewed: false
+      logging: false
+      metrics: false
+      documentation: false
+      api_contract: false
+      configuration: false
+      deployment: false
+      ci_validated: false
+    limitations: []
+    notes: >-
+      Redaction, retention and transport security. Redaction is applied inside the
+      logging emit path so a Sensitive_Value cannot leave the process through a
+      log line.
+
+  - id: mcp-server
+    name: MCP server
+    category: product_module
+    module: 15 MCP Server
+    group: integrations
+    status: not_started
+    phase: 23
+    implementation: integrations/mcp
+    tests: integrations/mcp/tests
+    evidence: []
+    component_dod:
+      implementation: false
+      unit_tests: false
+      integration_tests: false
+      error_handling: false
+      security_reviewed: false
+      logging: false
+      metrics: false
+      documentation: false
+      api_contract: false
+      configuration: false
+      deployment: false
+      ci_validated: false
+    limitations: []
+    placeholders:
+      - path: integrations/mcp/package.json
+        kind: other
+        reason: 'The `build` and `test` scripts echo "not implemented" and exit 1. The package declares no dependency and no entry point.'
+    notes: >-
+      The six tools of Master_Specification section 37, each delegating to the
+      core. No scoring or filtering logic may live here.
+
+  - id: ide-integrations
+    name: IDE integrations
+    category: product_module
+    module: 16 IDE Integrations
+    group: integrations
+    status: not_started
+    phase: 27
+    implementation: integrations
+    tests: integrations/*/tests
+    evidence: []
+    component_dod:
+      implementation: false
+      unit_tests: false
+      integration_tests: false
+      error_handling: false
+      security_reviewed: false
+      logging: false
+      metrics: false
+      documentation: false
+      api_contract: false
+      configuration: false
+      deployment: false
+      ci_validated: false
+    limitations:
+      - "No integration capability is claimed as supported for any host. Requirement 2.5 requires each documented capability to name the passing automated test that exercises it against the host's officially supported mechanism, and no such test exists."
+    placeholders:
+      - path: integrations/vscode/package.json
+        kind: other
+        reason: "Extension manifest scaffold. The `build` and `test` scripts exit 1; no activation event, contribution or command is declared."
+    notes: >-
+      Covers the VS Code, Kiro, Cursor, Claude Code and JetBrains adapters and the
+      Capability_Profile of Master_Specification section 39.
+
+  - id: client
+    name: Client
+    category: product_module
+    module: 17 Client
+    group: clients
+    status: not_started
+    phase: 24
+    implementation: clients/local-agent
+    tests: clients/local-agent/tests
+    evidence: []
+    component_dod:
+      implementation: false
+      unit_tests: false
+      integration_tests: false
+      error_handling: false
+      security_reviewed: false
+      logging: false
+      metrics: false
+      documentation: false
+      api_contract: false
+      configuration: false
+      deployment: false
+      ci_validated: false
+    limitations: []
+    notes: >-
+      The developer-machine Local_Client of Master_Specification section 44:
+      login, configuration, MCP hosting and diagnostics, with credentials in the
+      OS secure store. clients/desktop is a later shell over the same client.
+
+  - id: api
+    name: API
+    category: product_module
+    module: 18 API
+    group: clients
+    status: not_started
+    phase: 12
+    implementation: apps/api
+    tests: tests/api
+    evidence: []
+    component_dod:
+      implementation: false
+      unit_tests: false
+      integration_tests: false
+      error_handling: false
+      security_reviewed: false
+      logging: false
+      metrics: false
+      documentation: false
+      api_contract: false
+      configuration: false
+      deployment: false
+      ci_validated: false
+    limitations: []
+    placeholders:
+      - path: apps/api/package.json
+        kind: other
+        reason: 'The `build` and `test` scripts echo "not implemented" and exit 1.'
+    notes: >-
+      The public API product: the surface served by the gateway, its generated
+      reference documentation and its conformance suite. The contract itself
+      belongs to the shared-contracts entry.
+
+  - id: cli
+    name: CLI
+    category: product_module
+    module: 19 CLI
+    group: clients
+    status: not_started
+    phase: 25
+    implementation: cli
+    tests: cli/tests
+    evidence: []
+    component_dod:
+      implementation: false
+      unit_tests: false
+      integration_tests: false
+      error_handling: false
+      security_reviewed: false
+      logging: false
+      metrics: false
+      documentation: false
+      api_contract: false
+      configuration: false
+      deployment: false
+      ci_validated: false
+    limitations: []
+    notes: >-
+      Every command of Master_Specification section 48 with machine-readable
+      output and documented exit statuses. The command tree exists as empty
+      directories only.
+
+  - id: sdk
+    name: SDK
+    category: product_module
+    module: 20 SDK
+    group: clients
+    status: not_started
+    phase: 26
+    implementation: sdk
+    tests: sdk/*/tests
+    evidence: []
+    component_dod:
+      implementation: false
+      unit_tests: false
+      integration_tests: false
+      error_handling: false
+      security_reviewed: false
+      logging: false
+      metrics: false
+      documentation: false
+      api_contract: false
+      configuration: false
+      deployment: false
+      ci_validated: false
+    limitations:
+      - "Decision D2 excludes Go from phase 1, so sdk/go stays a scaffold while the TypeScript and Python SDKs are built."
+    placeholders:
+      - path: sdk/typescript/package.json
+        kind: other
+        reason: 'The `build` and `test` scripts echo "not implemented" and exit 1.'
+      - path: sdk/go/go.mod
+        kind: other
+        reason: "Declares a module path and a Go version over a directory with no Go source, so `go build ./...` compiles nothing."
+    notes: >-
+      One shared conformance suite is parameterized over all three SDKs so they
+      cannot diverge.
+
+  - id: dashboard
+    name: Dashboard
+    category: product_module
+    module: 21 Dashboard
+    group: clients
+    status: not_started
+    phase: 28
+    implementation: apps/dashboard
+    tests: apps/dashboard/tests
+    evidence: []
+    component_dod:
+      implementation: false
+      unit_tests: false
+      integration_tests: false
+      error_handling: false
+      security_reviewed: false
+      logging: false
+      metrics: false
+      documentation: false
+      api_contract: false
+      configuration: false
+      deployment: false
+      ci_validated: false
+    limitations: []
+    placeholders:
+      - path: apps/dashboard/package.json
+        kind: other
+        reason: 'The `build` and `test` scripts echo "not implemented" and exit 1. No framework, dependency or source file is present.'
+
+  - id: analytics
+    name: Analytics
+    category: product_module
+    module: 22 Analytics
+    group: services
+    status: not_started
+    phase: 22
+    implementation: services/analytics
+    tests: services/analytics/tests
+    evidence: []
+    component_dod:
+      implementation: false
+      unit_tests: false
+      integration_tests: false
+      error_handling: false
+      security_reviewed: false
+      logging: false
+      metrics: false
+      documentation: false
+      api_contract: false
+      configuration: false
+      deployment: false
+      ci_validated: false
+    limitations: []
+    notes: >-
+      Aggregation by every dimension of Master_Specification section 54, the
+      FinOps figures of section 55 and the routing metrics of section 78, always
+      scoped to the requesting principal's tenant.
+
+  - id: benchmarking
+    name: Benchmarking
+    category: product_module
+    module: 23 Benchmarking
+    group: platform
+    status: not_started
+    phase: 32
+    implementation: benchmark
+    tests: benchmark/tests
+    evidence: []
+    component_dod:
+      implementation: false
+      unit_tests: false
+      integration_tests: false
+      error_handling: false
+      security_reviewed: false
+      logging: false
+      metrics: false
+      documentation: false
+      api_contract: false
+      configuration: false
+      deployment: false
+      ci_validated: false
+    limitations:
+      - "No dataset exists in any of the eight domain directories, so every routing weight in config/ is an unmeasured starting value rather than a benchmarked one."
+    notes: >-
+      Requirements 2.3 and 2.4: a published quality or latency figure must carry
+      its dataset id, model id, run timestamp and sample count, and a figure
+      without a recorded run is excluded from reports.
+
+  - id: evaluation
+    name: Evaluation
+    category: product_module
+    module: 24 Evaluation
+    group: platform
+    status: not_started
+    phase: 33
+    implementation: evaluation
+    tests: evaluation/tests
+    evidence: []
+    component_dod:
+      implementation: false
+      unit_tests: false
+      integration_tests: false
+      error_handling: false
+      security_reviewed: false
+      logging: false
+      metrics: false
+      documentation: false
+      api_contract: false
+      configuration: false
+      deployment: false
+      ci_validated: false
+    limitations:
+      - "The labeled Routing_Dataset of Master_Specification section 76 does not exist, so routing quality is currently unmeasurable."
+
+  - id: audit
+    name: Audit
+    category: product_module
+    module: 25 Audit
+    group: services
+    status: not_started
+    phase: 21
+    implementation: services/audit
+    tests: services/audit/tests
+    evidence: []
+    component_dod:
+      implementation: false
+      unit_tests: false
+      integration_tests: false
+      error_handling: false
+      security_reviewed: false
+      logging: false
+      metrics: false
+      documentation: false
+      api_contract: false
+      configuration: false
+      deployment: false
+      ci_validated: false
+    limitations: []
+    notes: >-
+      Append-only storage with UPDATE and DELETE revoked from the application
+      role. Identity and policy events start being recorded at sequence steps 05
+      to 07, before this service exists.
+
+  - id: billing
+    name: Billing
+    category: product_module
+    module: 26 Billing
+    group: services
+    status: not_started
+    phase: 30
+    implementation: services/billing
+    tests: services/billing/tests
+    evidence: []
+    component_dod:
+      implementation: false
+      unit_tests: false
+      integration_tests: false
+      error_handling: false
+      security_reviewed: false
+      logging: false
+      metrics: false
+      documentation: false
+      api_contract: false
+      configuration: false
+      deployment: false
+      ci_validated: false
+    limitations: []
+    notes: >-
+      Money is held in integer minor units. Billing state is outside the routing
+      core's import boundary.
+
+  - id: notifications
+    name: Notifications
+    category: product_module
+    module: 27 Notifications
+    group: services
+    status: not_started
+    phase: 31
+    implementation: services/notifications
+    tests: services/notifications/tests
+    evidence: []
+    component_dod:
+      implementation: false
+      unit_tests: false
+      integration_tests: false
+      error_handling: false
+      security_reviewed: false
+      logging: false
+      metrics: false
+      documentation: false
+      api_contract: false
+      configuration: false
+      deployment: false
+      ci_validated: false
+    limitations: []
+    notes: >-
+      Email, webhook, Slack and Teams delivery for every event of
+      Master_Specification section 57, excluding sensitive values and message
+      content.
+
+  - id: observability
+    name: Observability
+    category: product_module
+    module: 28 Observability
+    group: platform
+    status: not_started
+    phase: 20
+    implementation: packages/telemetry
+    tests: packages/telemetry/tests
+    evidence: []
+    component_dod:
+      implementation: false
+      unit_tests: false
+      integration_tests: false
+      error_handling: false
+      security_reviewed: false
+      logging: false
+      metrics: false
+      documentation: false
+      api_contract: false
+      configuration: false
+      deployment: false
+      ci_validated: false
+    limitations:
+      - "observability/ documents the metric catalog of Master_Specification section 59 in prose only. No collector configuration, dashboard, alert rule or runbook exists."
+    notes: >-
+      Structured logging, OpenTelemetry tracing, the metric registry and the alert
+      rules under observability/alerts/.
+
+  - id: deployment
+    name: Deployment
+    category: product_module
+    module: 29 Deployment
+    group: platform
+    status: not_started
+    phase: 34
+    implementation: deployments
+    tests: tests/e2e
+    evidence: []
+    component_dod:
+      implementation: false
+      unit_tests: false
+      integration_tests: false
+      error_handling: false
+      security_reviewed: false
+      logging: false
+      metrics: false
+      documentation: false
+      api_contract: false
+      configuration: false
+      deployment: false
+      ci_validated: false
+    limitations:
+      - "Nothing in the repository is deployable. The only working deployment artifact is the local Compose stack, and it starts PostgreSQL and Redis only."
+      - "The Helm chart passes `helm lint` and installs cleanly while deploying no workload at all, which makes a successful install a misleading signal until the templates are written."
+    placeholders:
+      - path: services/*/Dockerfile
+        kind: dockerfile
+        reason: "Each is `FROM scratch` plus labels, with the intended build stages in comments. Deliberately not buildable: the services have no source. Named per service in .github/workflows/build-images.yml, which is itself disabled."
+      - path: cli/Dockerfile
+        kind: dockerfile
+        reason: "Same shape as the service Dockerfiles: `FROM scratch` plus labels, no build stage, no source to build."
+      - path: deployments/helm/agentrouter/templates/*.yaml
+        kind: helm_template
+        reason: "Every one of the twelve templates contains a Go template comment and nothing else, so `helm template` renders zero Kubernetes resources."
+      - path: deployments/kubernetes/base
+        kind: kubernetes_manifest
+        reason: "Empty, as are the development, staging and production overlays. There is no kustomization and no manifest."
+      - path: infrastructure/terraform/modules
+        kind: terraform_module
+        reason: "Seven module directories and three environment directories hold a README and a .gitkeep each. No .tf file exists, so `terraform init` has nothing to initialize."
+      - path: .github/workflows/build-images.yml
+        kind: ci_workflow
+        reason: "Prints that service Dockerfiles are scaffolds and exits 0. It builds no image, so a green run means nothing was built."
+      - path: .github/workflows/deploy-staging.yml
+        kind: ci_workflow
+        reason: "Manual dispatch only; prints that deployment is not wired up and exits 0."
+      - path: .github/workflows/deploy-production.yml
+        kind: ci_workflow
+        reason: "Manual dispatch only; prints that deployment is not wired up and exits 0."
+    notes: >-
+      Covers Implementation_Sequence steps 34 to 37 (Kubernetes, Helm, Terraform,
+      CI/CD) and the HA and DR posture of steps 38 and 39.
+
+  - id: administration
+    name: Administration
+    category: product_module
+    module: 30 Administration
+    group: clients
+    status: not_started
+    phase: 29
+    implementation: apps/admin-console
+    tests: apps/admin-console/tests
+    evidence: []
+    component_dod:
+      implementation: false
+      unit_tests: false
+      integration_tests: false
+      error_handling: false
+      security_reviewed: false
+      logging: false
+      metrics: false
+      documentation: false
+      api_contract: false
+      configuration: false
+      deployment: false
+      ci_validated: false
+    limitations: []
+    placeholders:
+      - path: apps/admin-console/package.json
+        kind: other
+        reason: 'The `build` and `test` scripts echo "not implemented" and exit 1.'
+    notes: >-
+      The Admin_Console of Master_Specification section 105. Authorization is
+      evaluated server side; the console is never trusted for it.

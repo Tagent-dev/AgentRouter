@@ -1,0 +1,42 @@
+# AgentRouter development and test tooling.
+#
+# Install:
+#     python -m pip install -r requirements-dev.txt
+#
+# Equivalent on pip 25.1 or newer, which reads the PEP 735 group directly:
+#     python -m pip install --group dev
+#
+# Every version is pinned exactly. A range would let an upstream release change
+# lint, type-check or test behaviour without a reviewed commit, so `>=` and `~=`
+# are not permitted in this file.
+#
+# This file and the `dev` group in pyproject.toml must agree. That is asserted by
+# tests/unit/test_dependency_manifests.py, so edit both together.
+
+# Formatting and linting
+ruff==0.16.7
+
+# Static type checking (strict mode; configured in pyproject.toml)
+mypy==2.3.1
+
+# Unit test runner and coverage
+pytest==9.1.1
+pytest-cov==7.1.0
+coverage[toml]==7.16.1
+
+# Property-based testing. The design's property tables are implemented as
+# Hypothesis properties, so this is required tooling rather than optional.
+hypothesis==6.168.0
+
+# Used by scripts/testing/validate_structure.py to parse tracked YAML
+pyyaml==6.0.3
+types-pyyaml==6.0.12.20260906
+
+# Validates docs/implementation-status.yaml against
+# docs/status-manifest.schema.json (requirement 1.3). Draft 2020-12 support is
+# required: the manifest schema uses if/then/else subschemas to make
+# implementation, tests and evidence mandatory only for `implemented`
+# components. The stub package is separate from the runtime package, so both are
+# pinned, and their versions track each other.
+jsonschema==4.25.1
+types-jsonschema==4.25.1.20250822

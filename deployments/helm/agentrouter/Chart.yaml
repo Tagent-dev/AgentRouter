@@ -1,0 +1,14 @@
+apiVersion: v2
+name: agentrouter
+description: Enterprise AI model routing, optimization and governance platform
+type: application
+version: 0.0.0
+appVersion: "0.0.0"
+kubeVersion: ">=1.28.0-0"
+home: https://github.com/agentrouter/agentrouter
+sources:
+  - https://github.com/agentrouter/agentrouter
+maintainers:
+  - name: AgentRouter
+annotations:
+  agentrouter.io/status: scaffold

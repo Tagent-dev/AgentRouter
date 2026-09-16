@@ -1,0 +1,125 @@
+# Default values for the AgentRouter chart.
+#
+# Scaffold: templates are not written yet, so installing this chart does
+# nothing. The value shape below is the contract the templates will implement.
+#
+# Never commit real secrets to any values file. Reference an external secret
+# manager or a pre-created Kubernetes Secret instead.
+
+global:
+  imageRegistry: ""
+  imagePullSecrets: []
+  # Deployment mode: saas | dedicated | self-hosted
+  deploymentMode: self-hosted
+
+image:
+  repository: ghcr.io/agentrouter
+  tag: ""
+  pullPolicy: IfNotPresent
+
+# Workloads follow the consolidated production topology.
+workloads:
+  gateway:
+    enabled: true
+    replicaCount: 2
+    resources: {}
+    autoscaling:
+      enabled: false
+      minReplicas: 2
+      maxReplicas: 10
+      targetCPUUtilizationPercentage: 70
+  router:
+    enabled: true
+    replicaCount: 2
+    resources: {}
+    autoscaling:
+      enabled: false
+      minReplicas: 2
+      maxReplicas: 10
+      targetCPUUtilizationPercentage: 70
+  controlApi:
+    enabled: true
+    replicaCount: 2
+    resources: {}
+  worker:
+    enabled: true
+    replicaCount: 1
+    resources: {}
+  mcp:
+    enabled: true
+    replicaCount: 1
+    resources: {}
+  dashboard:
+    enabled: true
+    replicaCount: 2
+    resources: {}
+
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 10001
+  fsGroup: 10001
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop: ["ALL"]
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts: []
+  tls: []
+
+networkPolicy:
+  enabled: true
+  # Restrict egress to approved model providers and platform dependencies.
+  allowedEgress: []
+
+# Bring your own PostgreSQL. The chart does not ship a production database.
+postgresql:
+  enabled: false
+  host: ""
+  port: 5432
+  database: agentrouter
+  sslMode: require
+  existingSecret: ""
+
+redis:
+  enabled: false
+  host: ""
+  port: 6379
+  existingSecret: ""
+
+# Provider credentials always come from an external secret manager.
+secrets:
+  provider: external   # external | kubernetes
+  externalSecretName: ""
+
+observability:
+  otel:
+    enabled: true
+    endpoint: ""
+  prometheus:
+    serviceMonitor:
+      enabled: false
+
+routing:
+  mode: balanced
+  weights:
+    quality: 0.40
+    cost: 0.25
+    latency: 0.15
+    reliability: 0.20
+  escalation:
+    enabled: true
+  fallback:
+    enabled: true

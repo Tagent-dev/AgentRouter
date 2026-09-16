@@ -1,0 +1,49 @@
+# Production overrides.
+#
+# Pin images by digest. Supply database, Redis and provider credentials through
+# an external secret manager, never through this file.
+
+image:
+  tag: ""   # set to an immutable tag or digest at release time
+
+workloads:
+  gateway:
+    replicaCount: 3
+    autoscaling:
+      enabled: true
+      minReplicas: 3
+      maxReplicas: 20
+  router:
+    replicaCount: 3
+    autoscaling:
+      enabled: true
+      minReplicas: 3
+      maxReplicas: 20
+  controlApi:
+    replicaCount: 3
+  worker:
+    replicaCount: 2
+  mcp:
+    replicaCount: 2
+  dashboard:
+    replicaCount: 3
+
+ingress:
+  enabled: true
+
+networkPolicy:
+  enabled: true
+
+postgresql:
+  enabled: false
+  sslMode: require
+
+secrets:
+  provider: external
+
+observability:
+  otel:
+    enabled: true
+  prometheus:
+    serviceMonitor:
+      enabled: true

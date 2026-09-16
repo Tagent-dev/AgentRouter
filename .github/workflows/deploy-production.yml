@@ -1,0 +1,23 @@
+# Scaffold workflow. Steps are intentionally minimal until the
+# corresponding services exist. Extend per implementation phase.
+
+name: Deploy Production
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy to production
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - name: Not yet enabled
+        run: |
+          echo "Deployment is not wired up. Requires the Helm chart under"
+          echo "deployments/helm/agentrouter plus cluster credentials."
+          exit 0

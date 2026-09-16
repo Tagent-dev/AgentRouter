@@ -1,0 +1,61 @@
+# AgentRouter public API contract.
+#
+# Scaffold: paths are declared as the API surface from the master specification
+# (section 45) but no operations are defined yet. API reference documentation is
+# generated from this file, so it stays the single source of truth.
+
+openapi: 3.1.0
+
+info:
+  title: AgentRouter API
+  version: 0.0.0
+  description: >-
+    Enterprise AI model routing, optimization and governance platform.
+    This contract is a scaffold and does not yet describe a running service.
+  license:
+    name: SEE LICENSE IN LICENSE
+
+servers:
+  - url: https://api.example.invalid/v1
+    description: Placeholder. Configure per environment.
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: auth
+  - name: models
+  - name: providers
+  - name: routing
+  - name: usage
+  - name: policies
+  - name: organizations
+  - name: teams
+  - name: users
+  - name: audit
+
+paths: {}
+# Planned surface:
+#   /auth
+#   /models
+#   /providers
+#   /route
+#   /generate
+#   /usage
+#   /policies
+#   /organizations
+#   /teams
+#   /users
+#   /audit
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    apiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+  schemas: {}

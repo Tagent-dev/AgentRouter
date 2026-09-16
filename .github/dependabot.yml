@@ -1,0 +1,10 @@
+version: 2
+
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+
+# TODO(phase): add npm, gomod and pip ecosystems as manifests gain real
+# dependencies (apps/, integrations/, sdk/, services/).

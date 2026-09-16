@@ -1,0 +1,10 @@
+{
+  "name": "@agentrouter/sdk",
+  "version": "0.0.0",
+  "description": "AgentRouter TypeScript SDK",
+  "license": "SEE LICENSE IN LICENSE",
+  "scripts": {
+    "build": "echo \"not implemented\" && exit 1",
+    "test": "echo \"not implemented\" && exit 1"
+  }
+}

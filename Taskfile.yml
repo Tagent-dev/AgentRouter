@@ -1,0 +1,97 @@
+# Task runner alternative to the Makefile (https://taskfile.dev).
+# Kept in sync with Makefile targets.
+
+version: "3"
+
+vars:
+  COMPOSE: docker compose -f deployments/docker/docker-compose.yml -f deployments/docker/docker-compose.dev.yml
+  COMPOSE_TEST: docker compose -f deployments/docker/docker-compose.test.yml
+
+tasks:
+  default:
+    desc: List available tasks
+    cmds:
+      - task --list
+    silent: true
+
+  scaffold:
+    desc: Recreate any missing part of the repository structure
+    cmds:
+      - python scripts/bootstrap/scaffold_repository.py
+
+  verify-structure:
+    desc: Fail if the structure drifts from the scaffold definition
+    cmds:
+      - python scripts/bootstrap/scaffold_repository.py
+      - git diff --exit-code
+      - python scripts/testing/validate_structure.py
+
+  check:
+    desc: "THE quality gate: format, lint, type check, unit tests"
+    cmds:
+      - python scripts/development/check.py
+
+  format:
+    desc: Rewrite formatting in place (check only reports)
+    cmds:
+      - python -m ruff format .
+      - python -m ruff check --fix .
+
+  health:
+    desc: Report whether PostgreSQL and Redis are reachable
+    cmds:
+      - python scripts/development/health.py
+
+  up:
+    desc: Start local backing services
+    cmds:
+      - "{{.COMPOSE}} up -d"
+
+  down:
+    desc: Stop local backing services
+    cmds:
+      - "{{.COMPOSE}} down"
+
+  logs:
+    desc: Tail local backing service logs
+    cmds:
+      - "{{.COMPOSE}} logs -f"
+
+  test-env-up:
+    desc: Start the ephemeral integration test stack
+    cmds:
+      - "{{.COMPOSE_TEST}} up -d --wait"
+
+  test-env-down:
+    desc: Tear down the integration test stack
+    cmds:
+      - "{{.COMPOSE_TEST}} down -v"
+
+  helm-lint:
+    desc: Lint the Helm chart
+    cmds:
+      - helm lint deployments/helm/agentrouter
+
+  status:
+    desc: Show implementation status
+    cmds:
+      - echo "See docs/IMPLEMENTATION_STATUS.md"
+
+  # lint and test are single steps of check, kept for narrowing a failure.
+  # check is the documented command (requirement 3.6).
+  lint:
+    desc: "One step of check: ruff format --check and ruff check"
+    cmds:
+      - python -m ruff format --check .
+      - python -m ruff check .
+
+  test:
+    desc: "One step of check: pytest with coverage"
+    cmds:
+      - python -m pytest
+
+  build:
+    desc: Build all services (not implemented)
+    cmds:
+      - cmd: echo "No buildable source yet."
+      - cmd: exit 1
