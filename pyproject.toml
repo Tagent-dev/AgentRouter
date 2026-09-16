@@ -1,0 +1,228 @@
+# AgentRouter Python workspace.
+#
+# Decision D2 of the design makes Python the implementation language for the
+# analyzer, router, policy engine, cost engine, registry, provider adapters,
+# gateway and MCP server. This file is the single place that declares:
+#
+#   1. the workspace members (packages/* and services/*)
+#   2. the exact, pinned tool and test dependencies
+#   3. the ruff, mypy and pytest/coverage configuration
+#
+# Every dependency is pinned with `==`. Ranges are not permitted: a range makes
+# a build non-reproducible and lets an upstream release change behaviour without
+# a reviewed commit.
+#
+# Import convention
+# -----------------
+# The repository root is the only import root (`pythonpath = ["."]`). Workspace
+# members are therefore imported by their path, for example
+# `packages.shared_types` and `services.router`. Putting `packages/` itself on
+# sys.path was rejected because `packages/logging/` would then shadow the
+# standard library `logging` module.
+#
+# Member directories use snake_case because a hyphen cannot appear in a Python
+# module name.
+
+# ---------------------------------------------------------------------------
+# Workspace
+# ---------------------------------------------------------------------------
+# Declared here rather than inferred from a glob so that a new directory under
+# packages/ or services/ is a reviewed change. The boundary scanner (task 3.2)
+# and the quality command (task 1.2) read this list.
+
+[tool.agentrouter.workspace]
+root-import-path = "."
+packages = [
+    "packages/shared_types",
+    "packages/api_contracts",
+    "packages/configuration",
+    "packages/redaction",
+    "packages/logging",
+    "packages/telemetry",
+    "packages/errors",
+    "packages/tenant",
+    "packages/auth",
+    "packages/authorization",
+    "packages/events",
+    "packages/testing",
+    "packages/security",
+    "packages/validation",
+]
+services = [
+    "services/registry",
+    "services/analyzer",
+    "services/policy",
+    "services/router",
+    "services/cost_engine",
+    "services/providers",
+    "services/gateway",
+    "services/analytics",
+    "services/billing",
+    "services/notifications",
+    "services/audit",
+]
+
+# ---------------------------------------------------------------------------
+# Dependencies
+# ---------------------------------------------------------------------------
+# PEP 735 dependency group. Install with:
+#
+#   python -m pip install --group dev
+#
+# `requirements-dev.txt` carries the same pins for pip versions without PEP 735
+# support. The two are kept in step by tests/unit/test_dependency_manifests.py.
+#
+# There is no runtime dependency group yet. No service exists, so any runtime
+# dependency added now would be a guess.
+
+[dependency-groups]
+dev = [
+    "ruff==0.16.7",
+    "mypy==2.3.1",
+    "pytest==9.1.1",
+    "pytest-cov==7.1.0",
+    "coverage[toml]==7.16.1",
+    "hypothesis==6.168.0",
+    "pyyaml==6.0.3",
+    "types-pyyaml==6.0.12.20260906",
+    "jsonschema==4.25.1",
+    "types-jsonschema==4.25.1.20250822",
+]
+
+# ---------------------------------------------------------------------------
+# Formatting and linting (ruff)
+# ---------------------------------------------------------------------------
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["."]
+# Only Python is in scope. Recent ruff versions also format fenced code blocks in
+# Markdown, which would rewrite the spec and planning documents. Those are the
+# source of truth for the build and must not be edited by a formatter.
+include = ["*.py", "*.pyi"]
+extend-exclude = [
+    ".venv",
+    "node_modules",
+    "sdk/go",
+    "sdk/typescript",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # import sorting
+    "N",    # pep8 naming
+    "UP",   # pyupgrade
+    "B",    # bugbear
+    "C4",   # comprehensions
+    "SIM",  # simplify
+    "PTH",  # prefer pathlib
+    "RUF",  # ruff-specific
+    "S",    # flake8-bandit: security
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Assertions are the point of a test, and test fixtures may use predictable
+# values that bandit reads as weak randomness or hardcoded credentials.
+"tests/**" = ["S101", "S105", "S106", "S311"]
+"packages/testing/**" = ["S101", "S105", "S106", "S311"]
+# Repository tooling shells out to git and to the interpreter with fixed,
+# non-user-supplied argument lists.
+"scripts/**" = ["S404", "S603", "S607"]
+# The scaffold generator holds long literal document text and long path tables.
+# The formatter wraps what it can; the remainder is single string literals that
+# cannot be split without changing generated output.
+"scripts/bootstrap/scaffold_repository.py" = ["S404", "S603", "S607", "E501"]
+
+[tool.ruff.format]
+# Left off deliberately. Docstrings in this repository quote contract shapes and
+# spec excerpts verbatim; reformatting them would silently edit quoted material.
+docstring-code-format = false
+
+# ---------------------------------------------------------------------------
+# Static type checking, strict mode (mypy)
+# ---------------------------------------------------------------------------
+# The header above avoids the words that mypy parses as an inline config comment
+# when this file's text is embedded in a Python source file by the scaffold
+# generator.
+# ---------------------------------------------------------------------------
+
+[tool.mypy]
+# The floor is 3.11 even though 3.13 is the development interpreter, so that
+# type checking rejects syntax the floor cannot run.
+python_version = "3.11"
+strict = true
+mypy_path = ["."]
+namespace_packages = true
+explicit_package_bases = true
+warn_unreachable = true
+warn_no_return = true
+extra_checks = true
+enable_error_code = [
+    "redundant-expr",
+    "possibly-undefined",
+    "truthy-bool",
+    "ignore-without-code",
+]
+# mypy fails when a listed directory holds no Python file. `packages/` and
+# `services/` hold none yet; each is added to this list by the task that
+# introduces its first module.
+files = ["scripts", "tests"]
+
+[[tool.mypy.overrides]]
+module = ["tests.*"]
+# Test bodies are checked as strictly as source, but pytest fixtures and
+# parametrize decorators are untyped upstream in some plugins.
+disallow_untyped_decorators = false
+
+# ---------------------------------------------------------------------------
+# pytest and coverage
+# ---------------------------------------------------------------------------
+
+[tool.pytest.ini_options]
+minversion = "9.0"
+pythonpath = ["."]
+testpaths = ["tests", "packages", "services"]
+addopts = [
+    "-ra",
+    "--strict-markers",
+    "--strict-config",
+    "--cov",
+    "--cov-report=term-missing",
+]
+filterwarnings = [
+    "error",
+    # `packages/` and `services/` hold no Python module yet, so coverage measures
+    # nothing and pytest-cov warns that it cannot write a report. Remove this
+    # entry with the task that adds the first module: after that, an empty
+    # coverage report is a real problem worth failing on.
+    "default::pytest_cov.plugin.CovReportWarning",
+]
+markers = [
+    "unit: fast, isolated, no external process",
+    "integration: needs PostgreSQL, Redis or another local dependency",
+    "e2e: exercises the assembled system",
+    "property: Hypothesis property test",
+    "live: calls a real provider API; excluded from the default run",
+]
+xfail_strict = true
+
+[tool.coverage.run]
+branch = true
+source = ["packages", "services"]
+relative_files = true
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+exclude_also = [
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "@overload",
+]
+# Raised as source lands. It cannot be enforced before there is source to
+# measure, and a threshold over an empty tree would be a false signal.
+fail_under = 0

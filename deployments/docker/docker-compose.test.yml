@@ -1,0 +1,33 @@
+# Scaffold compose file. Only backing services that are useful before any
+# application code exists are defined. Application services are added as
+# each one becomes runnable.
+
+# Ephemeral stack for integration tests. Uses throwaway credentials and
+# tmpfs storage so no state survives the run.
+
+name: agentrouter-test
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: agentrouter_test
+      POSTGRES_PASSWORD: agentrouter_test
+      POSTGRES_DB: agentrouter_test
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U agentrouter_test"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    tmpfs:
+      - /data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10

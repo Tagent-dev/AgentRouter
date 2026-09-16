@@ -1,0 +1,20 @@
+# Scaffold compose file. Only backing services that are useful before any
+# application code exists are defined. Application services are added as
+# each one becomes runnable.
+
+# Overlay for local development. Use with:
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+
+name: agentrouter
+
+services:
+  postgres:
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+
+  redis:
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+
+# TODO(phase): add application services with source mounts and hot reload once
+# services/ contain runnable code.

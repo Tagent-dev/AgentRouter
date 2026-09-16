@@ -1,0 +1,11 @@
+# Ownership map. Replace the placeholder owner before enabling reviews.
+# Syntax: <path> <owner>
+
+* @agentrouter-owner
+
+/services/router/ @agentrouter-owner
+/services/policy/ @agentrouter-owner
+/packages/auth/ @agentrouter-owner
+/packages/security/ @agentrouter-owner
+/security/ @agentrouter-owner
+/infrastructure/ @agentrouter-owner

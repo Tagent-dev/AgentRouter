@@ -1,0 +1,22 @@
+# Scaffold workflow. Steps are intentionally minimal until the
+# corresponding services exist. Extend per implementation phase.
+
+name: Build Images
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build container images
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Not yet enabled
+        run: |
+          echo "Service Dockerfiles are scaffolds. Enable per service once its"
+          echo "source and build are implemented."
+          exit 0

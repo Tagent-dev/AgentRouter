@@ -1,0 +1,6 @@
+{{/*
+  Scaffold template: mcp.yaml
+
+  Not implemented. Rendering this chart currently produces no resources for
+  this file. Implement alongside the corresponding workload.
+*/}}

@@ -1,0 +1,25 @@
+# Staging overrides: production-shaped, smaller footprint.
+
+workloads:
+  gateway:
+    replicaCount: 2
+    autoscaling:
+      enabled: true
+      minReplicas: 2
+      maxReplicas: 4
+  router:
+    replicaCount: 2
+    autoscaling:
+      enabled: true
+      minReplicas: 2
+      maxReplicas: 4
+
+ingress:
+  enabled: true
+
+networkPolicy:
+  enabled: true
+
+observability:
+  otel:
+    enabled: true

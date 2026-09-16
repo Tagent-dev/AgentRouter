@@ -1,0 +1,11 @@
+{
+  "name": "@agentrouter/api",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Public API application",
+  "license": "SEE LICENSE IN LICENSE",
+  "scripts": {
+    "build": "echo \"not implemented\" && exit 1",
+    "test": "echo \"not implemented\" && exit 1"
+  }
+}

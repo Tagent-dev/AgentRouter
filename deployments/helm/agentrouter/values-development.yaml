@@ -1,0 +1,21 @@
+# Development overrides: single replicas, no autoscaling, relaxed ingress.
+
+workloads:
+  gateway:
+    replicaCount: 1
+  router:
+    replicaCount: 1
+  controlApi:
+    replicaCount: 1
+  dashboard:
+    replicaCount: 1
+
+ingress:
+  enabled: false
+
+networkPolicy:
+  enabled: false
+
+observability:
+  otel:
+    enabled: false

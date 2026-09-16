@@ -1,0 +1,56 @@
+# Scaffold workflow. Steps are intentionally minimal until the
+# corresponding services exist. Extend per implementation phase.
+
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  structure:
+    name: Repository structure
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install development dependencies
+        run: pip install --disable-pip-version-check -r requirements-dev.txt
+
+      - name: Verify scaffold is idempotent
+        run: |
+          python scripts/bootstrap/scaffold_repository.py
+          git diff --exit-code
+
+      - name: Validate structure, JSON and YAML
+        run: python scripts/testing/validate_structure.py
+
+      # Requirement 3.6: one documented command runs formatting, linting, type
+      # checking and unit tests. CI runs that command rather than repeating its
+      # steps, so the gate cannot differ between a developer machine and CI.
+      - name: Quality gate
+        run: make check
+
+  helm:
+    name: Helm chart
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+      - name: Lint chart
+        run: helm lint deployments/helm/agentrouter
+
+  # TODO(phase): add integration test and build jobs as each service under
+  # services/ and app under apps/ is implemented.
